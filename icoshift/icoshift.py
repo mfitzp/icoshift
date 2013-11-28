@@ -271,10 +271,6 @@ def icoshift(xT,  xP,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  Sca
                 warning('iCoShift:Input',wmsg)
                 input('press a key to continue...')
     
-    print '?'
-    print xT
-    print xP
-    print '?'
     flag=np.isnan(cat(0,xT,xP))
     frag=False
     Ref=lambda c: np.reshape(c, (2,max(c.shape) / 2) ).T
@@ -382,7 +378,6 @@ def icoshift(xT,  xP,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  Sca
         #del sallint
         del sinter
         del intdif
-
         
         ints=allint
         #ints(:,4)=(ints(:,3)-ints(:,2))+1;
@@ -473,13 +468,6 @@ def icoshift(xT,  xP,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  Sca
     if flag_coshift:
         ind=ind + wint * ones(1,ind.shape[1])
         
-    print "FINISHED"
-    print "--------"
-    print 'xCS',xCS
-    print 'ints',ints
-    print 'ind',ind
-    print 'target',target
-    
     return xCS,ints,ind,target
     
     
@@ -1030,7 +1018,6 @@ def ExtractSegments(X,Segments):
     1.00.00 23 Mar 09 -> First working version
     '''
     n,p = X.shape
-
     Sd=np.diff(Segments,axis=1)
     
     q=np.sum(Sd + 1)

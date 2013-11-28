@@ -2,15 +2,15 @@
 # coding=utf-8
 import sys
 from copy import copy
-import distribute_setup
-distribute_setup.use_setuptools()
+#import distribute_setup
+#distribute_setup.use_setuptools()
 
 from setuptools import setup, find_packages
 
 setup(
 
     name='icoshift',
-    version='0.1',
+    version='0.2',
     author='Martin Fitzpatrick',
     author_email='martin.fitzpatrick@gmail.com',
     url='https://github.com/mfitzp/icoshift',
