@@ -10,7 +10,7 @@ from setuptools import setup, find_packages
 setup(
 
     name='icoshift',
-    version='0.2',
+    version='0.4',
     author='Martin Fitzpatrick',
     author_email='martin.fitzpatrick@gmail.com',
     url='https://github.com/mfitzp/icoshift',
