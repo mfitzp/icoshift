@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import division, print_function
 import numpy as np
 from scipy.stats import nanmean, nanmedian
 from scipy.io import loadmat, savemat
@@ -115,8 +115,6 @@ def icoshift(xT,  xP,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  Sca
     # To avoid out of memory errors when 'whole',  the job is divided in
     # blocks of 32MB
     BLOCKSIZE = 2 ** 25
-
-    print xP.shape
 
     if len(Scal) != max(Scal.shape):
         error('Scal must be a vector')
@@ -536,7 +534,7 @@ def coshifta(xT, xP, refW=np.array([0]), n=np.array([1, 2, 3]), options=np.array
     else:
         nR, mR = refW.shape[0], 0
 
-    print 'mT,mP', mT, mP
+    print('mT,mP', mT, mP)
 
     if (mT != mP):
         error(
@@ -591,15 +589,8 @@ def coshifta(xT, xP, refW=np.array([0]), n=np.array([1, 2, 3]), options=np.array
 
             if Filling == -np.inf:
             
-                print xP
-                print np.tile(xP[:, :1], (1., n)
-                print cat(1, np.tile(xP[:, :1], (1., n) )
-            
                 xtemp = cat(1, np.tile(xP[:, :1], (1., n)),
                             xP, np.tile(xP[:, -1:, ], (1., n)))
-
-                
-
                 # xtemp=np.array([xP[:,np.ones(1,n)],xP,xP[:,(mP[0,np.ones(1,n)]-1)]])
                 # #.reshape(1,-1)
 
@@ -1265,12 +1256,12 @@ def dscal2dpts(*varargin):
 
 
 def warning(msg):
-    print msg
+    print(msg)
     return True
 
 
 def error(msg):
-    print msg
+    print(msg)
     return False
 
 

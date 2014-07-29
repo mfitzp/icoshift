@@ -10,7 +10,7 @@ from setuptools import setup, find_packages
 setup(
 
     name='icoshift',
-    version='0.4',
+    version='0.6',
     author='Martin Fitzpatrick',
     author_email='martin.fitzpatrick@gmail.com',
     url='https://github.com/mfitzp/icoshift',
@@ -23,14 +23,14 @@ setup(
         Translated from MATLAB code using smop and manual adjustments. \
         ',
 
-    packages = ['icoshift'],
-    include_package_data = True,
-    package_data = {
+    packages=['icoshift'],
+    include_package_data=True,
+    package_data={
         '': ['*.txt', '*.rst', '*.md'],
     },
-    exclude_package_data = { '': ['README.txt'] },
+    exclude_package_data={'': ['README.txt']},
 
-    install_requires = [
+    install_requires=[
             'numpy>=1.7.1',
             'scipy>=0.12.0',
             ],
