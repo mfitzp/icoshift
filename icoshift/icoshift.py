@@ -166,13 +166,6 @@ def icoshift(xT,  xP,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  Sca
             error(
                 'ERROR: number of intervals "inter" must be smaller than number of variables in xP')
 
-    options = np.array(options)
-    options_co = np.array([1, 1, 0, 0, 0]).reshape(1, -1)
-
-    if max(options.shape) < max(options_co.shape):
-        options[(end + 1 - 1):max(options_co.shape)
-                ] = options_co[(max(options.shape) + 1 - 1):]
-
     if options[0] < 0 or options[0] > 2:
         error('options(1) must be 0, 1 or 2')
 
@@ -702,8 +695,8 @@ def defints(xP, interv, opt):
 
 
 def CC_FFTShift(T, X=False, options=np.array([])):
-    dimX = X.shape
-    dimT = T.shape
+    dimX = np.array( X.shape )
+    dimT = np.array( T.shape )
 
     # .reshape(1,-1)
     optionsDefault = np.array(
@@ -715,6 +708,7 @@ def CC_FFTShift(T, X=False, options=np.array([])):
         options[o:] = optionsDefault[o:]
 
     options[np.isnan(options)] = optionsDefault[np.isnan(options)]
+    print(options)
 
     if options[0] > options[1]:
         error('Lower bound for shift is larger than upper bound')
