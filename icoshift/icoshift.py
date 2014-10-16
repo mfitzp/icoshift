@@ -16,7 +16,7 @@ def is_number(s):
 
 
 def cat(dim, *args):
-    return numpy.concatenate(args, axis=dim)
+    return numpy.concatenate([r for r in args if r.shape[0] > 0], axis=dim)
 
 
 def sortrows(a, i):
@@ -570,7 +570,7 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=numpy.array([]))
 
     ind_blocks = sam_xblock[numpy.ones(n_blocks, dtype=bool)]
     ind_blocks[0:np % sam_xblock] = sam_xblock + 1
-    ind_blocks = numpy.array([0, numpy.cumsum(ind_blocks, 0)]).reshape(1, -1)
+    ind_blocks = numpy.array([0, numpy.cumsum(ind_blocks, 0)]).flatten()
 
     if auto == 1:
         while auto == 1:
@@ -592,7 +592,7 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=numpy.array([]))
 
             for i_block in range(0, n_blocks):
                 block_indices = range(
-                    ind_blocks[0, i_block], ind_blocks[0, i_block + 1])
+                    ind_blocks[i_block], ind_blocks[i_block + 1])
 
                 _, ind[block_indices], ri = cc_fft_shift( xt[0, [ref_w]], xp[block_indices, :][:, ref_w], numpy.array([-n, n, 2, 1, filling]) )
 
@@ -626,24 +626,32 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=numpy.array([]))
                             'Best shift allowed for this interval = %g \\n', n)
     else:
         if filling == - numpy.inf:
-            xtemp = numpy.array(
-                [xp[:, numpy.ones((1, n))], xp, xp[:, mp[0, numpy.ones((1, n))]]]).reshape(1, -1)
+            #[xP(:,ones(1,n)) xP xP(:,mP(1,ones(1,n)))];
+
+            xtemp = numpy.array([
+                 numpy.repeat( xp[:, 0], n),
+                 xp,
+                 numpy.repeat( xp[:, mp-1 ], n),
+                ]).reshape(1, -1)
 
         else:
             if numpy.isnan(filling):
                 xtemp = numpy.array([nan(np, n), xp, nan(np, n)]).reshape(1, -1)
 
         if rw == 1:
-            ref_w = range(1, (mp + 1))
+            ref_w = range(0, mp)
 
         ind = nan(np, 1)
         r = numpy.array([])
 
-        for i_block in range(0, n_blocks):
+        for i_block in range(n_blocks):
+
+
             block_indices = range(ind_blocks[i_block], ind_blocks[i_block + 1])
             dummy, ind[block_indices], ri = cc_fft_shift(xt[0, [ref_w]], xp[block_indices, :][:, ref_w], numpy.array([-n, n, 2, 1, filling]))
             r = cat(0, r, ri)
-        temp_index = range(-n, n)
+
+        temp_index = range(-n, n+1)
 
         for i_sam in range(0, np):
             index = numpy.flatnonzero(temp_index == ind[i_sam])
@@ -659,8 +667,8 @@ def defints(xp, interv, opt):
     np, mp = xp.shape
     sizechk = mp / interv - round_(mp / interv)
     plus = (mp / interv - round_(mp / interv)) * interv
-    mbx = 'Warning: the last interval will not fulfill the selected intervals size "inter" = ' + \
-        num2str(interv)
+    logging.warn( 'Warning: the last interval will not fulfill the selected intervals size "inter" = %f' % interv)
+    
     if plus >= 0:
         mbx2 = 'Size of the last interval = ' + num2str(plus)
     else:
@@ -670,7 +678,7 @@ def defints(xp, interv, opt):
         uiwait(msgbox(mbx3, 'Warning', 'warn'))
     else:
         if opt[0] != 0 and (sizechk != 0):
-            logging.info(' Warning: the last interval will not fulfill the selected intervals size "inter"=%g. \ Size of the last interval = %g ', interv, plus)
+            logging.info(' Warning: the last interval will not fulfill the selected intervals size "inter"=%f. \ Size of the last interval = %f ' % (interv, plus) )
             
     t = cat(1, range(0, (mp + 1), interv), mp)
     if t[-2] == t[-2]:
