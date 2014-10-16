@@ -194,7 +194,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
             logging.warn('icoshift: discontinuous_Scal',
                     's_cal vector is not continuous, the defined intervals might not reflect actual ranges')
 
-    flag_coshift = (not inter == 'whole') and options[2])
+    flag_coshift = (not inter == 'whole') and options[2]
 
     if flag_coshift:
         if options[3] == 0:
@@ -272,25 +272,19 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
         logging.error('"n" must be a scalar b or f')
 
     else:
-        if is_number(n):
-            if any(n <= 0):
+        if isinstance(n, int) or isinstance(n, float):
+            if n <= 0:
                 logging.error('ERROR: shift(s) "n" must be larger than zero')
-            if n.size > 1:
-                wmsg = sprintf(
-                    '"n" must be a scalar/character; first element (i.e. %i) used', round_(n))
-            if scfl and n != numpy.fix(n):
-                wmsg = sprintf(
-                    '"n" must be an integer if s_cal is ignorde; first element (i.e. %i) used', round_(n))
+
+            if scfl and not isinstance(n, int):
+                logging.warn('"n" must be an integer if s_cal is ignorde; first element (i.e. %d) used', round_(n))
+                n = np.round(n)
             else:
                 if options[4]:
                     n = dscal2dpts(n, s_cal, prec)
-            if not flag2 and any(numpy.diff((reshape(inter, 2, mint / 2)), 1, 1) < n):
-                logging.error(
-                    'ERROR: shift "n" must be not larger than the size of the smallest interval')
-            n = round_(n[0])
-            if not (0 in wmsg.shape):
-                logging.warn('iCoShift:Input', wmsg)
-                input('press a key to continue...')
+
+            if not flag2 and numpy.any(numpy.diff(numpy.reshape(inter, (2, mint // 2)), 1, 0) < n):
+                logging.error('ERROR: shift "n" must be not larger than the size of the smallest interval')
 
     flag = numpy.isnan(cat(0, xt, xp))
     frag = False
