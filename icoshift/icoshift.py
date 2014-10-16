@@ -191,7 +191,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
             logging.warn('icoshift: discontinuous_Scal',
                     's_cal vector is not continuous, the defined intervals might not reflect actual ranges')
 
-    flag_coshift = not inter == 'whole' and options[2]
+    flag_coshift = not (inter == 'whole' and options[2])
 
     if flag_coshift:
         if options[3] == 0:
