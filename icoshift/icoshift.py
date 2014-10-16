@@ -430,7 +430,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
             missind = ~numpy.all(numpy.isnan(intervalnow), axis=1)
             
             if not numpy.all(numpy.isnan(target)) and numpy.any(missind):
-                cosh_interval, loc_ind, nul = coshifta(target, intervalnow[missind, :], numpy.array([0]), n, numpy.append(options[0:3], numpy.array([blocksize]) ))
+                cosh_interval, loc_ind, nul = coshifta(target, intervalnow[missind, :], 0, n, numpy.append(options[0:3], numpy.array([blocksize]) ))
                 xcs[missind, allint[i, 1]:allint[i, 2] + 1] = cosh_interval
                 ind[missind, i] = loc_ind.flatten()
 
@@ -487,7 +487,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
     return xcs, ints, ind, target
 
 
-def coshifta(xt, xp, ref_w=numpy.array([0]), n=numpy.array([1, 2, 3]), options=numpy.array([])):
+def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=numpy.array([])):
 
     if ref_w == 0 or ref_w.shape[0] == 0:
         ref_w = numpy.array([0])
