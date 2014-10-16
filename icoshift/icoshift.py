@@ -185,6 +185,9 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
         if inter > mp:
             logging.error('ERROR: number of intervals "inter" must be smaller than number of variables in xp')
 
+    # Set defaults if the settings are not set
+    options = [options[n] if n < len(options) else d for n, d in enumerate([1, 1, 0, 0, 0]) ]
+
     if options[4]:
         prec = abs(numpy.min(unique(dec_scale)))
         if flag_di_scale:
