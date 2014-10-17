@@ -35,10 +35,25 @@ def nan(r, c):
     return a
 
 
-def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_cal=None, coshift_preprocessing=False, fill_with_previous=True, average2_multiplier=3):
+def min_with_indices(d):
+    d = d.flatten()
+    ml = numpy.min(d)
+    mi = numpy.array(list(d).index(ml))
+    return ml, mi
+
+
+def max_with_indices(d):
+    d = d.flatten()
+    ml = numpy.max(d)
+    mi = numpy.array(list(d).index(ml))
+    return ml, mi
+
+
+def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  scale=None, coshift_preprocessing=False,
+             fill_with_previous=True, average2_multiplier=3):
     '''
     interval Correlation Optimized shifting
-    [xcs, ints, ind, target] = icoshift(xt, xp, inter[, n[, options[, s_cal]]])
+    [xcs, ints, ind, target] = icoshift(xt, xp, inter[, n[, options[, scale]]])
     Splits a spectral database into "inter" intervals and coshift each vector
     left-right to get the maximum correlation toward a reference or toward an
     average spectrum in that interval. Missing parts on the edges after
@@ -64,10 +79,10 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
                                        refs:refe (in sampling points)
                      'refs-refe'     : `shift the whole spectra according to a
                                        reference signal(s) in the region
-                                       refs-refe (in s_cal units)
+                                       refs-refe (in scale units)
     n (1 * 1)      : (optional)
                      n = integer n.: maximum shift correction in data
-                                     points/s_cal units (cf. options[4])
+                                     points/scale units (cf. options[4])
                                      in x/rows. It must be >0
                      n = 'b' (best): the algorithm search for the best n
                                      for each interval (it can be time consuming!)
@@ -85,10 +100,10 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
                          0 : no Co-shift preprocessing (default)
                          1 : Executes a Co-shift step before carrying out iCOshift
                      (3) max allowed shift for the Co-shift preprocessing (default = equal to n if not specified)
-                         it has to be given in s_cal units if option(5)=1
+                         it has to be given in scale units if option(5)=1
                      (4) 0 : intervals are given in No. of datapoints  (deafult)
-                         1 : intervals are given in ppm --> use s_cal for inter and n
-    s_cal           : vector of scalars used as axis for plot (optional)
+                         1 : intervals are given in ppm --> use scale for inter and n
+    scale           : vector of scalars used as axis for plot (optional)
 
     average2_multiplier: int (optional)
                     If 'average2' is used as the target, this determines the multiplier used
@@ -138,8 +153,8 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
 
     # RETURNS [xcs, ints, ind, target]
 
-    if s_cal is None:
-        s_cal = numpy.array(range(0, xp.shape[1]))  # 1:size(xp, 2)]
+    if scale is None:
+        scale = numpy.array(range(0, xp.shape[1]))  # 1:size(xp, 2)]
 
     # ERRORS CHECK
     # Constant
@@ -147,19 +162,19 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
     # blocks of 32MB
     block_size = 2 ** 25
 
-    if len(s_cal) != max(s_cal.shape):
-        logging.error('s_cal must be a vector')
+    if len(scale) != max(scale.shape):
+        logging.error('scale must be a vector')
 
-    if max(s_cal.shape) != xp.shape[1]:
-        logging.error('x and s_cal are not of compatible length %d vs. %d' %
-                     (max(s_cal.shape), xp.shape[1]))
+    if max(scale.shape) != xp.shape[1]:
+        logging.error('x and scale are not of compatible length %d vs. %d' %
+                     (max(scale.shape), xp.shape[1]))
 
-    dec_scale = numpy.diff(s_cal)
+    dec_scale = numpy.diff(scale)
 
-    inc_scale = s_cal[0] - s_cal[1]
+    inc_scale = scale[0] - scale[1]
 
     if inc_scale == 0 or not numpy.all(numpy.sign(dec_scale) == - numpy.sign(inc_scale)):
-        logging.error('s_cal must be strictly monotonic')
+        logging.error('scale must be strictly monotonic')
 
     flag_scale_dir = inc_scale < 0
     flag_di_scale = numpy.any(abs(dec_scale) > 2 * numpy.min(abs(dec_scale)))
@@ -167,26 +182,21 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
     max_flag = 0
     avg2_flag = 0
 
+    xt_basis = xt
+
     if xt == 'average':
         xt = numpy.array([nanmean(xp, axis=0), ])
-        note = 'average'
 
-    else:
-        if xt == 'median':
+    elif xt == 'median':
             xt = numpy.array([nanmedian(xp, axis=0), ])
-            note = 'median'
 
-        else:
-            if xt == 'average2':
-                xt = numpy.array([nanmean(xp, axis=0), ])
-                avg2_flag = 1
-                note = 'average2'
+    elif xt == 'average2':
+            xt = numpy.array([nanmean(xp, axis=0), ])
+            avg2_flag = 1
 
-            else:
-                if xt == 'max':
-                    xt = numpy.zeros((1, xp.shape[1],))
-                    max_flag = 1
-                    note = 'max'
+    elif xt == 'max':
+            xt = numpy.zeros((1, xp.shape[1],))
+            max_flag = 1
 
     nt, mt = xt.shape
     np, mp = xp.shape
@@ -196,7 +206,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
 
     if is_number(inter):
         if inter > mp:
-            logging.error('ERROR: number of intervals "inter" must be smaller than number of variables in xp')
+            logging.error('Number of intervals "inter" must be smaller than number of variables in xp')
 
     # Set defaults if the settings are not set
     options = [options[oi] if oi < len(options) else d for oi, d in enumerate([1, 1, 0, 0, 0]) ]
@@ -204,7 +214,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
     if options[4]:
         prec = abs(numpy.min(unique(dec_scale)))
         if flag_di_scale:
-            logging.warn('icoshift: discontinuous_Scals_cal vector is not continuous, the defined intervals might not reflect actual ranges')
+            logging.warn('Scale vector is not continuous, the defined intervals might not reflect actual ranges')
 
     flag_coshift = (not inter == 'whole') and coshift_preprocessing
 
@@ -215,20 +225,20 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
         else:
             n_co = options[3]
             if nargin >= 6 and options[4]:
-                n_co = dscal2dpts(n_co, s_cal, prec)
+                n_co = dscal2dpts(n_co, scale, prec)
 
         if max_flag:
             xt = nanmean(xp, axis=0)
 
-        xp, nil, wint = icoshift( xt, xp, 'whole', n_co, numpy.array([0, 1, 0]).reshape(1, -1) )
+        xp, nil, wint, _ = icoshift( xt, xp, 'whole', n_co, numpy.array([0, 1, 0]).reshape(1, -1) )
 
-        if note == 'average':
+        if xt_basis == 'average':
             xt = nanmean(xp)
 
-        if xt == 'median':
+        elif xt_basis == 'median':
             xt = nanmedian(xp)
 
-        if note == 'average2':
+        elif xt_basis == 'average2':
             xt = nanmean(xp)
 
     whole = False
@@ -240,89 +250,107 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
             inter = numpy.array([0, mp - 1]).reshape(1, -1)
             whole = True
 
-        else:
+        elif not numpy.any(inter == '-'):
+            interv = str2double(inter)
 
-            if not numpy.any(inter == '-'):
-                interv = str2double(inter)
-
-                if nargin < 6 or not options[4]:
-                    interv = round_(interv)
-
-                else:
-                    interv = dscal2dpts(interv, s_cal, prec)
-
-                inter = defints(xp, interv, options[0])
+            if nargin < 6 or not options[4]:
+                interv = round_(interv)
 
             else:
-                interv = regexp(inter, '(-{0,1}\\d*\\.{0,1}\\d*)-(-{0,1}\\d*\\.{0,1}\\d*)', 'tokens')
-                interv = sort(scal2pts(str2double(cat(0, interv[:])), s_cal, prec))
+                interv = dscal2dpts(interv, scale, prec)
 
-                if interv.size != 2:
-                    logging.error('Invalid range for reference signal')
+            inter = defints(xp, interv, options[0])
 
-                inter = range(interv[0], (interv[1] + 1))
-                flag2 = True
+        else:
+            interv = regexp(inter, '(-{0,1}\\d*\\.{0,1}\\d*)-(-{0,1}\\d*\\.{0,1}\\d*)', 'tokens')
+            interv = sort(scal2pts(str2double(cat(0, interv[:])), scale, prec))
+
+            if interv.size != 2:
+                logging.error('Invalid range for reference signal')
+
+            inter = range(interv[0], (interv[1] + 1))
+            flag2 = True
+
+    elif isinstance(inter, int):
+
+        # Build interval list
+        # e.g. 5 intervals on 32768 to match MATLAB algorithm should be
+        #0, 6554, 6554, 13108, 13108, 19662, 19662, 26215, 26215, 32767
+
+        step = int(round(float(mp) / inter))
+        segments = []
+
+        for o in range(0, mp, step):
+            segments.extend([o, o])
+
+        # Chop of duplicate zero
+        segments = segments[1:]
+        segments.append(mp)  # Add on final step
+
+        inter = numpy.array(segments, dtype=int).reshape(1, -1)
+
+    elif isinstance(inter, list):  # if is a list of tuples ; add else
+        inter = np.array(inter)
+
+        flag2 = numpy.array_equal(numpy.fix(inter), inter) and max(inter.shape) > 1 and numpy.array_equal(
+            numpy.array([1, numpy.max(inter) - numpy.min(inter) + 1]).reshape(1, -1), inter.shape) and numpy.array_equal(unique(numpy.diff(inter, 1, 2)), 1)
+
+        if not flag2 and options[4]:
+            inter = scal2pts(inter, scale, prec)
+
+            if numpy.any(inter[0:2:] > inter[1:2:]) and not flag_scale_dir:
+                inter = flipud(numpy.reshape(inter, 2, max(inter.shape) / 2))
+                inter = inter[:].T
 
     else:
+        logging.error('The number of intervals must be "whole", an integer, or a list of tuples of integers')
 
-        if is_number(inter):
-            if inter.size == 1:
-                if numpy.fix(inter) == inter:
-                    remain = mod(mp, inter)
-                    n = numpy.fix(mp / inter)
-                    startint = numpy.array(
-                        [(range(1, ((remain - 1) * (n + 1) + 1 + 1), (n + 1))).T,
-                         (range((remain - 1) * (n + 1) + 1 + 1 + n, (mp + 1), n)).T]).reshape(1, -1)
-                    endint = numpy.array([startint[1:inter], mp]).reshape(1, -1)
-                    inter = numpy.array([startint, endint]).reshape(1, -1).T
-                    inter = inter[:].T
-
-                else:
-                    logging.error('The number of intervals must be an integer')
-
-            else:
-                flag2 = numpy.array_equal(numpy.fix(inter), inter) and max(inter.shape) > 1 and numpy.array_equal(
-                    numpy.array([1, numpy.max(inter) - numpy.min(inter) + 1]).reshape(1, -1), inter.shape) and numpy.array_equal(unique(numpy.diff(inter, 1, 2)), 1)
-
-                if not flag2 and options[4]:
-                    inter = scal2pts(inter, s_cal, prec)
-
-                    if numpy.any(inter[0:2:] > inter[1:2:]) and not flag_scale_dir:
-                        inter = flipud(numpy.reshape(inter, 2, max(inter.shape) / 2))
-                        inter = inter[:].T
 
     nint, mint = inter.shape
-    scfl = numpy.array_equal(numpy.fix(s_cal), s_cal) and not options[4]
+    scfl = numpy.array_equal(numpy.fix(scale), scale) and not options[4]
 
     if isinstance(inter, basestring) and n not in ['b', 'f']:
         logging.error('"n" must be a scalar b or f')
 
-    else:
-        if isinstance(n, int) or isinstance(n, float):
-            if n <= 0:
-                logging.error('ERROR: shift(s) "n" must be larger than zero')
+    elif isinstance(n, int) or isinstance(n, float):
+        if n <= 0:
+            logging.error('Shift(s) "n" must be larger than zero')
 
-            if scfl and not isinstance(n, int):
-                logging.warn('"n" must be an integer if s_cal is ignored; first element (i.e. %d) used', round_(n))
-                n = numpy.round(n)
-            else:
-                if options[4]:
-                    n = dscal2dpts(n, s_cal, prec)
+        if scfl and not isinstance(n, int):
+            logging.warn('"n" must be an integer if scale is ignored; first element (i.e. %d) used', round_(n))
+            n = numpy.round(n)
+        else:
+            if options[4]:
+                n = dscal2dpts(n, scale, prec)
 
-            if not flag2 and numpy.any(numpy.diff(numpy.reshape(inter, (2, mint // 2)), 1, 0) < n):
-                logging.error('ERROR: shift "n" must be not larger than the size of the smallest interval')
+        if not flag2 and numpy.any(numpy.diff(numpy.reshape(inter, (2, mint // 2)), 1, 0) < n):
+            logging.error('Shift "n" must be not larger than the size of the smallest interval')
 
     flag = numpy.isnan(cat(0, xt, xp))
     frag = False
     ref = lambda e: numpy.reshape(e, (2, max(e.shape) / 2)).T
     vec = lambda a: a.flatten()
 
-    mi, pmi = numpy.min(inter, axis=0)
-    ma, pma = numpy.max(inter, axis=0)
+    mi, pmi = min_with_indices(inter)
+    ma, pma = max_with_indices(inter)
+
+
+    print(inter)
+    print(inter.shape)
+    print('~~~~~~~~~~')
+    print(mi)
+    print('..')
+    print(pmi)
+    print('--------')
+    print(ma)
+    print('..')
+    print(pma)
+    print('~~~~~~~~~~')
 
     # There are missing values in the dataset; so remove them before starting
     # if they line up between datasets
     if vec(flag).any():
+
         if numpy.array_equal(flag[numpy.ones((np, 1), dtype=int), :], flag[1:,:]):
             select = numpy.any
         else:
@@ -334,9 +362,8 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
             if intern_.shape[0] != 1:
                 logging.error('Reference region contains a pattern of missing that cannot be handled consistently')
 
-            else:
-                if not numpy.array_equal(intern_, numpy.array([1, inter[-2] - inter[0] + 1]).reshape(1, -1)):
-                    logging.warn('The missing values at the boundaries of the reference region will be ignored')
+            elif not numpy.array_equal(intern_, numpy.array([1, inter[-2] - inter[0] + 1]).reshape(1, -1)):
+                logging.warn('The missing values at the boundaries of the reference region will be ignored')
 
             intern_ = range(inter[0] + intern_[0], (inter[0] + intern_[1] + 1))
         else:
@@ -366,10 +393,9 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
                 inter = intern_
                 nint, mint = inter.shape
     xcs = xp
-    mi = numpy.min(inter)
-    pmi = numpy.min(inter)
-    ma = numpy.max(inter)
-    pma = numpy.max(inter)
+    mi, pmi = min_with_indices(inter)
+    ma, pma = max_with_indices(inter)
+
 
     flag = max(inter.shape) > 1 and numpy.array_equal(
         numpy.array([1, pma - pmi + 1]).reshape(1, -1), inter.shape) and numpy.array_equal(unique(numpy.diff(inter, 1, 2)), 1)
@@ -377,37 +403,46 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
     if flag:
         if n == 'b':
             logging.info('Automatic searching for the best "n" for the reference window "ref_w" enabled. That can take a longer time.')
-        else:
-            if n == 'f':
-                logging.info('Fast automatic searching for the best "n" for the reference window "ref_w" enabled.')
+
+        elif n == 'f':
+            logging.info('Fast automatic searching for the best "n" for the reference window "ref_w" enabled.')
 
         if max_flag:
             numpy.max(numpy.sum(xp))
             xt[mi:ma] = xp[bmax, mi:ma]
         ind = numpy.nan(np, 1)
         missind = not all(numpy.isnan(xp), 2)
-        xcs[missind, :], ind[missind], _ = coshifta(xt, xp[missind,:], inter, n, options, fill_with_previous=fill_with_previous, block_size=block_size)
+        xcs[missind, :], ind[missind], _ = coshifta(xt, xp[missind,:], inter, n, options,
+                                                    fill_with_previous=fill_with_previous, block_size=block_size)
         ints = numpy.array([1, mi, ma]).reshape(1, -1)
 
     else:
         if mint > 1:
             if mint % 2:
                 logging.error('Wrong definition of intervals ("inter")')
+
             if ma > mp:
                 logging.error('Intervals ("inter") exceed samples matrix dimension')
 
-            allint = numpy.zeros((3))  # .reshape(1,-1)
-            allint[:] = numpy.arange(0, int(mint - 1 / 2))
+            # allint=[(1:round(mint/2))' inter(1:2:mint)' inter(2:2:mint)'];
+            # allint =
+            #        1           1        6555
+            #        2        6555       13109
+            #        3       13109       19663
+            #        4       19663       26216
+            #        5       26216       32768
+            # ans =
+            #  5     3
 
-            b = inter[:, range(0, mint, 1)]
-            if len(b) > 0:
-                allint[1:] = b
+            inter_list = list(inter.flatten())
 
-            c = inter[:, range(1, mint, 1)]
-            if len(c) > 0:
-                allint[2:] = c
+            allint = numpy.array([
+            range(mint//2),
+            inter_list[0::2],
+            inter_list[1::2],
+            ])
 
-            allint = allint.reshape(1, -1)
+            allint = allint.T
 
         sinter = numpy.sort(allint, axis=0)
         intdif = numpy.diff(sinter)
@@ -543,7 +578,10 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], fill_with_pr
     logging.info('mt=%d, mp=%d' % (mt, mp))
 
     if mt != mp:
-        logging.error('Target "xt" and sample "xp" must be of compatible size')
+        logging.error('Target "xt" and sample "xp" must be of compatible size (%d, %d)' % (mt, mp) )
+
+    print("mt:", mt, "mp:", mp)
+
 
     if numpy.any(n <= 0):
         logging.error('shift(s) "n" must be larger than zero')
@@ -562,13 +600,13 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], fill_with_pr
     if n == 'b':
         auto = 1
         if rw != 1:
-            n = numpy.fix(0.05 * mr)
+            n = int(0.05 * mr)
             n = 10 if n < 10 else n
-            src_step = numpy.fix(mr * 0.05)
+            src_step = int(mr * 0.05)
         else:
-            n = numpy.fix(0.05 * mp)
+            n = int(0.05 * mp)
             n = 10 if n < 10 else n
-            src_step = numpy.fix(mp * 0.05)
+            src_step = int(mp * 0.05)
         try_last = 0
 
     elif n == 'f':
@@ -582,7 +620,7 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], fill_with_pr
             src_step = numpy.round(mp / 2) - 1
         try_last = 1
 
-    if (nt != 1):
+    if nt != 1:
         logging.error('ERROR: Target "xt" must be a single row spectrum/chromatogram')
 
     xw = nan(np, mp)
@@ -618,7 +656,8 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], fill_with_pr
                 block_indices = range(
                     ind_blocks[i_block], ind_blocks[i_block + 1])
 
-                _, ind[block_indices], ri = cc_fft_shift( xt[0, [ref_w]], xp[block_indices, :][:, ref_w], numpy.array([-n, n, 2, 1, filling]) )
+                _, ind[block_indices], ri = cc_fft_shift(xt[0, [ref_w]], xp[block_indices, :][:, ref_w],
+                                                         numpy.array([-n, n, 2, 1, filling]) )
 
                 if not r:
                     r = numpy.empty((0, ri.shape[1]))
@@ -635,12 +674,12 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], fill_with_pr
                 if n + src_step >= ref_w.shape[1]:
                     try_last = 1
                     continue
-                n = n + src_step
+                n += src_step
                 continue
 
             else:
                 if (numpy.max(abs(ind)) < n) and n + src_step < len(ref_w) and try_last != 1:
-                    n = n + src_step
+                    n += src_step
                     try_last = 1
                     continue
                 else:
@@ -651,10 +690,10 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], fill_with_pr
         if filling == -numpy.inf:
 
             xtemp = numpy.array([
-                 numpy.repeat( xp[:, 0], n),
-                 xp,
-                 numpy.repeat( xp[:, mp-1 ], n),
-                ]).reshape(1, -1)
+                                numpy.repeat(xp[:, 0], n),
+                                xp,
+                                numpy.repeat(xp[:, mp-1], n),
+                                ]).reshape(1, -1)
 
         elif numpy.isnan(filling):
             xtemp = numpy.array([nan(np, n), xp, nan(np, n)]).reshape(1, -1)
@@ -669,7 +708,8 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], fill_with_pr
 
 
             block_indices = range(ind_blocks[i_block], ind_blocks[i_block + 1])
-            dummy, ind[block_indices], ri = cc_fft_shift(xt[0, [ref_w]], xp[block_indices, :][:, ref_w], numpy.array([-n, n, 2, 1, filling]))
+            dummy, ind[block_indices], ri = cc_fft_shift(xt[0, [ref_w]], xp[block_indices, :][:, ref_w],
+                                                         numpy.array([-n, n, 2, 1, filling]))
             r = cat(0, r, ri)
 
         temp_index = numpy.arange(-n, n+1)
@@ -678,7 +718,7 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], fill_with_pr
             index = numpy.flatnonzero(temp_index == ind[i_sam])
             xw[i_sam, :] = xtemp[i_sam, index:index + mp]
 
-        if (numpy.max(abs(ind)) == n):
+        if numpy.max(abs(ind)) == n:
             logging.warn('Scrolling window size "n" may not be enough wide because extreme limit has been reached')
 
     return xw, ind, r
@@ -694,7 +734,7 @@ def defints(xp, interv, opt):
     if plus >= 0:
         logging.warn('Size of the last interval = %d ' % plus)
     else:
-        logging.warn('Size of the last interval = %d' % (interv + plus) )
+        logging.warn('Size of the last interval = %d' % (interv + plus))
 
     if opt[0] != 0 and (sizechk != 0):
         logging.info('The last interval will not fulfill the selected intervals size "inter"=%f.' % interv)
@@ -711,10 +751,11 @@ def defints(xp, interv, opt):
 
 
 def cc_fft_shift(t, x=False, options=numpy.array([])):
-    dim_x = numpy.array( x.shape )
-    dimT = numpy.array( t.shape )
 
-    options_default = numpy.array([-numpy.fix(dimT[-1] * 0.5), numpy.fix(dimT[-1] * 0.5), len(t.shape) - 1, 1, numpy.nan])
+    dim_x = numpy.array(x.shape)
+    dim_t = numpy.array(t.shape)
+
+    options_default = numpy.array([-numpy.fix(dim_t[-1] * 0.5), numpy.fix(dim_t[-1] * 0.5), len(t.shape) - 1, 1, numpy.nan])
     options = numpy.array([options[oi] if oi < len(options) else d for oi, d in enumerate(options_default)])
     options[numpy.isnan(options)] = options_default[numpy.isnan(options)]
 
@@ -725,12 +766,9 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
 
     time_dim = int(options[2] - 1)
 
-    # if not(isequal(dim_x([2:time_dim - 1,time_dim + 1:end]),dim_x([2:time_dim -
-    # 1,time_dim + 1:end])))
-    if dim_x[time_dim] != dimT[time_dim]:
+    if dim_x[time_dim] != dim_t[time_dim]:
         logging.error('Target and signals do not have compatible dimensions')
 
-    # [time_dim,2:time_dim - 1,time_dim + 1:ndims(x),1]
     ord_ = numpy.array(
         [time_dim] +
         range(1, time_dim) +
@@ -752,7 +790,7 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
     x_fft = x_fft / b[:, -1]
 
     t = numpy.transpose(t, ord_)
-    t = numpy.reshape(t, (dimT[time_dim], numpy.prod(dimT[ord_[1:]])))
+    t = numpy.reshape(t, (dim_t[time_dim], numpy.prod(dim_t[ord_[1:]])))
     t = normalise(t)
 
     np, mp = x_fft.shape
@@ -766,7 +804,7 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
         miss_off = nan(1, mp)
 
         for i_signal in range(0, mp):
-            # remove_nan([1,np],x_fft(:,i_signal)',@all)
+
             limits = remove_nan(
                 numpy.array([0, np - 1]).reshape(1, -1), x_fft[:, i_signal].T, numpy.all)
 
@@ -795,14 +833,14 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
     ))
 
     t = cat(0, t, numpy.zeros(
-            (numpy.max(numpy.abs(options[0:2])), numpy.prod(dimT[ord_[1:]], axis=0))
+            (numpy.max(numpy.abs(options[0:2])), numpy.prod(dim_t[ord_[1:]], axis=0))
             ))
 
     len_fft = max(x_fft.shape[0], t.shape[0])
     shift = numpy.arange(options[0], options[1] + 1)
 
     if (options[0] < 0) and (options[1] > 0):
-        ind = range(int(len_fft + options[0]), int(len_fft) ) + \
+        ind = range(int(len_fft + options[0]), int(len_fft)) + \
             range(0,  int(options[1] + 1))
 
     elif (options[0] < 0) and (options[1] < 0):
@@ -816,14 +854,16 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
         # ind = Options(1) + 1:Options(2) + 1
         ind = range(int(options[0]), int(options[1] + 1))
 
-    x_fft = numpy.fft.fft(x_fft, len_fft, axis=0)
+    # Pad to next ^2 for performance on the FFT
+    fft_pad = int( 2**numpy.ceil( numpy.log2(len_fft) ) )
 
-    t_fft = numpy.fft.fft(t, len_fft, axis=0)
+    x_fft = numpy.fft.fft(x_fft, fft_pad, axis=0)
+    t_fft = numpy.fft.fft(t, fft_pad, axis=0)
     t_fft = numpy.conj(t_fft)
-
     t_fft = numpy.tile(t_fft, (1, dim_x[0]))
+
     dt = x_fft * t_fft
-    cc = numpy.fft.ifft(dt, len_fft, axis=0)
+    cc = numpy.fft.ifft(dt, fft_pad, axis=0)
 
     if len(ord_[1:-1]) == 0:
         k = 1
@@ -847,7 +887,7 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
     if flag_miss:
         shift = shift + miss_off
 
-    x_warp = nan(*[dim_x[0]] + list(dimT[1:]))
+    x_warp = nan(*[dim_x[0]] + list(dim_t[1:]))
     ind = numpy.tile(numpy.nan, (len(x.shape), 18))
     indw = ind
 
@@ -890,6 +930,7 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
 
     shift = numpy.reshape(shift, (len(shift), 1))
 
+    print('...cc_fft_shift')
     return x_warp, shift, values
 
 
