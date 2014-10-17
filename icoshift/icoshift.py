@@ -451,6 +451,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
                 xcs[:, allint[i, 1]:allint[i, 1] + 1] = intervalnow
 
         if avg2_flag:
+
             for i in range(0, allint.shape[0]):
                 if whole:
                     logging.info('Co-shifting again the whole %d samples... ' % np)
@@ -458,16 +459,19 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
                     logging.info('Co-shifting again interval no. %d of %d... ' % (i, allint.shape[0]))
 
                 intervalnow = xp[:, allint[i, 1]:allint[i, 2]]
-                target1 = numpy.mean(xcs[:, allint[i, 1]:allint[i, 2]], axis=0)
+                target1 = numpy.mean(xcs[:, allint[i, 1]:allint[i, 2]+1], axis=0)
                 min_interv = numpy.min(target1)
                 target = (target1 - min_interv) * average2_multiplier
                 missind = ~numpy.all(numpy.isnan(intervalnow), 1)
+
+
 
                 if (not numpy.all(numpy.isnan(target))) and (numpy.sum(missind) != 0):
                     cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n, options, block_size=block_size)
                     xcs[missind, allint[i, 1]:allint[i, 2]] = cosh_interval
                     xt[allint[i, 1]:allint[i, 2]] = target
                     ind[missind, i] = loc_ind.T
+
                 else:
                     xcs[:, allint[i, 1]:allint[i, 2]] = intervalnow
 
@@ -522,6 +526,9 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], block_size=(
 
     if xt == 'average':
         xt = nanmean(xp, axis=0)
+
+    # Make two dimensional
+    xt = xt.reshape(1, -1)
 
     nt, mt = xt.shape
     np, mp = xp.shape
@@ -615,7 +622,7 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], block_size=(
                     r = numpy.empty((0, ri.shape[1]))
                 r = cat(0, r, ri).T
 
-            temp_index = range(- n, n)
+            temp_index = range(-n, n)
 
             for i_sam in range(0, np):
                 index = numpy.flatnonzero(temp_index == ind[i_sam])
