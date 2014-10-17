@@ -49,7 +49,7 @@ def max_with_indices(d):
     return ml, mi
 
 
-def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  scale=None, coshift_preprocessing=False,
+def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scale=None, coshift_preprocessing=False,
              fill_with_previous=True, average2_multiplier=3):
     '''
     interval Correlation Optimized shifting
@@ -230,7 +230,8 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  sca
         if max_flag:
             xt = nanmean(xp, axis=0)
 
-        xp, nil, wint, _ = icoshift( xt, xp, 'whole', n_co, numpy.array([0, 1, 0]).reshape(1, -1) )
+        xp, nil, wint, _ = icoshift(xt, xp, 'whole', n_co, [0, 1, 0], scale=scale, fill_with_previous=True,
+                                    average2_multiplier=average2_multiplier )
 
         if xt_basis == 'average':
             xt = nanmean(xp)
@@ -317,7 +318,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  sca
             logging.error('Shift(s) "n" must be larger than zero')
 
         if scfl and not isinstance(n, int):
-            logging.warn('"n" must be an integer if scale is ignored; first element (i.e. %d) used', round_(n))
+            logging.warn('"n" must be an integer if scale is ignored; first element (i.e. %d) used' % round_(n))
             n = numpy.round(n)
         else:
             if options[4]:
@@ -333,19 +334,6 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  sca
 
     mi, pmi = min_with_indices(inter)
     ma, pma = max_with_indices(inter)
-
-
-    print(inter)
-    print(inter.shape)
-    print('~~~~~~~~~~')
-    print(mi)
-    print('..')
-    print(pmi)
-    print('--------')
-    print(ma)
-    print('..')
-    print(pma)
-    print('~~~~~~~~~~')
 
     # There are missing values in the dataset; so remove them before starting
     # if they line up between datasets
@@ -930,7 +918,6 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
 
     shift = numpy.reshape(shift, (len(shift), 1))
 
-    print('...cc_fft_shift')
     return x_warp, shift, values
 
 
@@ -1203,7 +1190,7 @@ def scal2pts(ppmi,  ppm=[],  prec=None):
         logging.error('Not enough input arguments')
 
     if max(ppmi.shape) > max(ppm.shape):
-        logging.warn('icoshift:scal2pts ppm vector is shorter than the value\'s')
+        logging.warn('scal2pts ppm vector is shorter than the values')
 
     xxi, k = sort(ppmi[:])
     nil, j = sort(numpy.array([ppm[:], xxi[:]]).reshape(1, -1))
