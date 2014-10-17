@@ -4,7 +4,12 @@ from scipy.stats import nanmean, nanmedian
 import sys
 import logging
 
-ITER = 0
+
+try:
+    basestring
+except NameError:
+    basestring = str
+
 
 def is_number(s):
     try:
@@ -30,8 +35,7 @@ def nan(r, c):
     return a
 
 
-
-def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_cal=None, average2_multiplier=3):
+def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_cal=None, fill_with_previous=True, average2_multiplier=3):
     '''
     interval Correlation Optimized shifting
     [xcs, ints, ind, target] = icoshift(xt, xp, inter[, n[, options[, s_cal]]])
@@ -148,13 +152,13 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
 
     if max(s_cal.shape) != xp.shape[1]:
         logging.error('x and s_cal are not of compatible length %d vs. %d' %
-              (max(s_cal.shape), xp.shape[1]))
+                     (max(s_cal.shape), xp.shape[1]))
 
     dec_scale = numpy.diff(s_cal)
 
     inc_scale = s_cal[0] - s_cal[1]
 
-    if inc_scale == 0 or not all(numpy.sign(dec_scale) == - numpy.sign(inc_scale)):
+    if inc_scale == 0 or not numpy.all(numpy.sign(dec_scale) == - numpy.sign(inc_scale)):
         logging.error('s_cal must be strictly monotonic')
 
     flag_scale_dir = inc_scale < 0
@@ -230,7 +234,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
     whole = False
     flag2 = False
 
-    if isinstance(inter, str):
+    if isinstance(inter, basestring):
 
         if inter == 'whole':
             inter = numpy.array([0, mp - 1]).reshape(1, -1)
@@ -290,7 +294,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
     nint, mint = inter.shape
     scfl = numpy.array_equal(numpy.fix(s_cal), s_cal) and not options[4]
 
-    if isinstance(inter, str) and n not in ['b', 'f']:
+    if isinstance(inter, basestring) and n not in ['b', 'f']:
         logging.error('"n" must be a scalar b or f')
 
     else:
@@ -300,7 +304,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
 
             if scfl and not isinstance(n, int):
                 logging.warn('"n" must be an integer if s_cal is ignored; first element (i.e. %d) used', round_(n))
-                n = np.round(n)
+                n = numpy.round(n)
             else:
                 if options[4]:
                     n = dscal2dpts(n, s_cal, prec)
@@ -380,9 +384,9 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
         if max_flag:
             numpy.max(numpy.sum(xp))
             xt[mi:ma] = xp[bmax, mi:ma]
-        ind = nan(np, 1)
+        ind = numpy.nan(np, 1)
         missind = not all(numpy.isnan(xp), 2)
-        xcs[missind, :], ind[missind], _ = coshifta(xt, xp[missind,:], inter, n, options, block_size=block_size)
+        xcs[missind, :], ind[missind], _ = coshifta(xt, xp[missind,:], inter, n, options, fill_with_previous=fill_with_previous, block_size=block_size)
         ints = numpy.array([1, mi, ma]).reshape(1, -1)
 
     else:
@@ -443,7 +447,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
 
             if not numpy.all(numpy.isnan(target)) and numpy.any(missind):
 
-                cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n, options, block_size=block_size)
+                cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n, options, fill_with_previous=fill_with_previous, block_size=block_size)
                 xcs[missind, allint[i, 1]:allint[i, 2] + 1] = cosh_interval
                 ind[missind, i] = loc_ind.flatten()
 
@@ -467,7 +471,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
 
 
                 if (not numpy.all(numpy.isnan(target))) and (numpy.sum(missind) != 0):
-                    cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n, options, block_size=block_size)
+                    cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n, options, fill_with_previous=fill_with_previous, block_size=block_size)
                     xcs[missind, allint[i, 1]:allint[i, 2]] = cosh_interval
                     xt[allint[i, 1]:allint[i, 2]] = target
                     ind[missind, i] = loc_ind.T
@@ -477,7 +481,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
 
     if frag:
 
-        xn = nan(np, mp)
+        xn = numpy.nan(np, mp)
         for i_sam in range(0, np):
             for i_seg in range(0, in_or.shape[0]):
                 xn[i_sam, in_or[i_seg, 0]:in_or[i_seg, 1]
@@ -503,26 +507,22 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
     return xcs, ints, ind, target
 
 
-def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], block_size=(2 ** 25)):
+def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], fill_with_previous=True, block_size=(2 ** 25)):
 
     if ref_w == 0 or ref_w.shape[0] == 0:
         ref_w = numpy.array([0])
 
     if numpy.all(ref_w >= 0):
         rw = max(ref_w.shape)
+
     else:
         rw = 1
 
-    options = [options[oi] if oi < len(options) else d for oi, d in enumerate([1, 1, 1]) ]
-
-    if options[1] == 1:
+    if fill_with_previous:
         filling = - numpy.inf
 
-    elif options[1] == 0:
-        filling = numpy.nan
-
     else:
-        logging.logging.error('options(2) must be 0 or 1')
+        filling = numpy.nan
 
     if xt == 'average':
         xt = nanmean(xp, axis=0)
@@ -540,19 +540,19 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], block_size=(
 
     logging.info('mt=%d, mp=%d' % (mt, mp))
 
-    if (mt != mp):
+    if mt != mp:
         logging.error('Target "xt" and sample "xp" must be of compatible size (same vectors, same matrices or row + matrix of rows)')
 
     if numpy.any(n <= 0):
         logging.error('shift(s) "n" must be larger than zero')
 
-    if (nr != 1):
+    if nr != 1:
         logging.error('Reference windows "ref_w" must be either a single vector or 0')
 
     if rw > 1 and (numpy.min(ref_w) < 1) or (numpy.max(ref_w) > mt):
         logging.error('Reference window "ref_w" must be a subset of xp')
 
-    if (nt != 1):
+    if nt != 1:
         logging.error('Target "xt" must be a single row spectrum/chromatogram')
 
 
@@ -646,8 +646,7 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], block_size=(
                     logging.info('Best shift allowed for this interval = %d' % n)
 
     else:
-        if filling == - numpy.inf:
-            #[xP(:,ones(1,n)) xP xP(:,mP(1,ones(1,n)))];
+        if filling == -numpy.inf:
 
             xtemp = numpy.array([
                  numpy.repeat( xp[:, 0], n),
@@ -683,6 +682,7 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], block_size=(
     return xw, ind, r
 
 
+
 def defints(xp, interv, opt):
     np, mp = xp.shape
     sizechk = mp / interv - round_(mp / interv)
@@ -704,6 +704,7 @@ def defints(xp, interv, opt):
     t = cat(0, t[0: - 1] + 1, t[1:])
     inter = t[:].T
     return inter
+
 
 
 def cc_fft_shift(t, x=False, options=numpy.array([])):
