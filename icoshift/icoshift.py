@@ -35,7 +35,7 @@ def nan(r, c):
     return a
 
 
-def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_cal=None, fill_with_previous=True, average2_multiplier=3):
+def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_cal=None, coshift_preprocessing=False, fill_with_previous=True, average2_multiplier=3):
     '''
     interval Correlation Optimized shifting
     [xcs, ints, ind, target] = icoshift(xt, xp, inter[, n[, options[, s_cal]]])
@@ -206,7 +206,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
         if flag_di_scale:
             logging.warn('icoshift: discontinuous_Scals_cal vector is not continuous, the defined intervals might not reflect actual ranges')
 
-    flag_coshift = (not inter == 'whole') and options[2]
+    flag_coshift = (not inter == 'whole') and coshift_preprocessing
 
     if flag_coshift:
         if options[3] == 0:
@@ -420,7 +420,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
         ind = numpy.zeros((np, allint.shape[0]))
 
         if n == 'b':
-            logging.info('Automatic searching for the best "n" for each interval enabled. That can take a longer time...')
+            logging.info('Automatic searching for the best "n" for each interval enabled. This can take a long time...')
 
         elif n == 'f':
             logging.info('Fast automatic searching for the best "n" for each interval enabled')
@@ -447,7 +447,8 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
 
             if not numpy.all(numpy.isnan(target)) and numpy.any(missind):
 
-                cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n, options, fill_with_previous=fill_with_previous, block_size=block_size)
+                cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n, options,
+                                                     fill_with_previous=fill_with_previous, block_size=block_size)
                 xcs[missind, allint[i, 1]:allint[i, 2] + 1] = cosh_interval
                 ind[missind, i] = loc_ind.flatten()
 
@@ -471,7 +472,8 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0],  s_c
 
 
                 if (not numpy.all(numpy.isnan(target))) and (numpy.sum(missind) != 0):
-                    cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n, options, fill_with_previous=fill_with_previous, block_size=block_size)
+                    cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n, options,
+                                                         fill_with_previous=fill_with_previous, block_size=block_size)
                     xcs[missind, allint[i, 1]:allint[i, 2]] = cosh_interval
                     xt[allint[i, 1]:allint[i, 2]] = target
                     ind[missind, i] = loc_ind.T
@@ -541,7 +543,7 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], fill_with_pr
     logging.info('mt=%d, mp=%d' % (mt, mp))
 
     if mt != mp:
-        logging.error('Target "xt" and sample "xp" must be of compatible size (same vectors, same matrices or row + matrix of rows)')
+        logging.error('Target "xt" and sample "xp" must be of compatible size')
 
     if numpy.any(n <= 0):
         logging.error('shift(s) "n" must be larger than zero')
@@ -677,7 +679,7 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], fill_with_pr
             xw[i_sam, :] = xtemp[i_sam, index:index + mp]
 
         if (numpy.max(abs(ind)) == n):
-            logging.warn('Warning: Scrolling window size "n" may not be enough wide because extreme limit has been reached')
+            logging.warn('Scrolling window size "n" may not be enough wide because extreme limit has been reached')
 
     return xw, ind, r
 
@@ -687,7 +689,7 @@ def defints(xp, interv, opt):
     np, mp = xp.shape
     sizechk = mp / interv - round_(mp / interv)
     plus = (mp / interv - round_(mp / interv)) * interv
-    logging.warn( 'Warning: the last interval will not fulfill the selected intervals size "inter" = %f' % interv)
+    logging.warn('The last interval will not fulfill the selected intervals size "inter" = %f' % interv)
 
     if plus >= 0:
         logging.warn('Size of the last interval = %d ' % plus)
@@ -695,7 +697,8 @@ def defints(xp, interv, opt):
         logging.warn('Size of the last interval = %d' % (interv + plus) )
 
     if opt[0] != 0 and (sizechk != 0):
-        logging.info(' Warning: the last interval will not fulfill the selected intervals size "inter"=%f. \ Size of the last interval = %f ' % (interv, plus) )
+        logging.info('The last interval will not fulfill the selected intervals size "inter"=%f.' % interv)
+        logging.info('Size of the last interval = %f ' % plus)
 
     t = cat(1, range(0, (mp + 1), interv), mp)
     if t[-2] == t[-2]:
