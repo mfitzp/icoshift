@@ -462,7 +462,14 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
             if max_flag:
                 amax, bmax = max_with_indices( numpy.sum(intervalnow, axis=1) )
                 target = intervalnow[bmax, :]
-                xt[allint[i, 1]:allint[i, 2]] = target
+                print('...')
+                print(i)
+                print(xt.shape)
+                print(target.shape)
+                print(allint[i, 1])
+                print(allint[i, 2])
+                print('...')
+                xt[0, allint[i, 1]:allint[i, 2] + 1] = target
             else:
                 target = xt[:, allint[i, 1]:allint[i, 2] + 1]
 
