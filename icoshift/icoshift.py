@@ -179,8 +179,8 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
     flag_scale_dir = inc_scale < 0
     flag_di_scale = numpy.any(abs(dec_scale) > 2 * numpy.min(abs(dec_scale)))
 
-    max_flag = 0
-    avg2_flag = 0
+    max_flag = False
+    avg2_flag = False
 
     xt_basis = xt
 
@@ -192,11 +192,11 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
 
     elif xt == 'average2':
             xt = numpy.array([nanmean(xp, axis=0), ])
-            avg2_flag = 1
+            avg2_flag = True
 
     elif xt == 'max':
             xt = numpy.zeros((1, xp.shape[1],))
-            max_flag = 1
+            max_flag = True
 
     nt, mt = xt.shape
     np, mp = xp.shape
@@ -396,8 +396,9 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
             logging.info('Fast automatic searching for the best "n" for the reference window "ref_w" enabled.')
 
         if max_flag:
-            numpy.max(numpy.sum(xp))
+            amax, bmax = max_with_indices( numpy.sum(xp) )
             xt[mi:ma] = xp[bmax, mi:ma]
+
         ind = numpy.nan(np, 1)
         missind = not all(numpy.isnan(xp), 2)
         xcs[missind, :], ind[missind], _ = coshifta(xt, xp[missind,:], inter, n, options,
@@ -425,9 +426,9 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
             inter_list = list(inter.flatten())
 
             allint = numpy.array([
-            range(mint//2),
-            inter_list[0::2],
-            inter_list[1::2],
+                range(mint//2),
+                inter_list[0::2],
+                inter_list[1::2],
             ])
 
             allint = allint.T
@@ -459,8 +460,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
             intervalnow = xp[:, allint[i, 1]:allint[i, 2] + 1]
 
             if max_flag:
-
-                numpy.max(numpy.sum(intervalnow, 2))
+                amax, bmax = max_with_indices( numpy.sum(intervalnow, axis=1) )
                 target = intervalnow[bmax, :]
                 xt[allint[i, 1]:allint[i, 2]] = target
             else:
@@ -491,8 +491,6 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
                 min_interv = numpy.min(target1)
                 target = (target1 - min_interv) * average2_multiplier
                 missind = ~numpy.all(numpy.isnan(intervalnow), 1)
-
-
 
                 if (not numpy.all(numpy.isnan(target))) and (numpy.sum(missind) != 0):
                     cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n, options,
@@ -567,9 +565,6 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], fill_with_pr
 
     if mt != mp:
         logging.error('Target "xt" and sample "xp" must be of compatible size (%d, %d)' % (mt, mp) )
-
-    print("mt:", mt, "mp:", mp)
-
 
     if numpy.any(n <= 0):
         logging.error('shift(s) "n" must be larger than zero')
@@ -802,6 +797,7 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
 
             if numpy.any(cat(1, limits[0], mp - limits[1]) > numpy.max(abs(options[0:2]))):
                 logging.error('Missing values band larger than largest admitted shift')
+
             miss_off[i_signal] = limits[0]
 
             if miss_off[i_signal] > 1:
