@@ -234,7 +234,8 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
         if max_flag:
             xt = nanmean(xp, axis=0)
 
-        xp, nil, wint, _ = icoshift(xt, xp, 'whole', coshift_preprocessing_max_shift, [0, 1, 0], scale=scale,
+        co_shift_scale = scale if using_custom_scale else None
+        xp, nil, wint, _ = icoshift(xt, xp, 'whole', coshift_preprocessing_max_shift, [0, 1, 0], scale=co_shift_scale,
                                     fill_with_previous=True, average2_multiplier=average2_multiplier )
 
         if xt_basis == 'average':
@@ -331,7 +332,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
         if not flag2 and numpy.any(numpy.diff(numpy.reshape(inter, (2, mint // 2)), 1, 0) < n):
             logging.error('Shift "n" must be not larger than the size of the smallest interval')
 
-    flag = numpy.isnan(cat(0, xt, xp))
+    flag = numpy.isnan(cat(0, xt.reshape(1, -1), xp))
     frag = False
     ref = lambda e: numpy.reshape(e, (2, max(e.shape) / 2)).T
     vec = lambda a: a.flatten()
@@ -369,8 +370,6 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
         if max(intern_.shape) != max(inter.shape) and not flag2:
             if whole:
                 if max(intern_.shape) > 2:
-                    if options[0] == 2:
-                        xt_bu = xt
 
                     xseg, in_or = extract_segments(cat(0, xt, xp), ref(intern_))
                     InOrf = in_or.flatten()
@@ -405,8 +404,8 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
 
         ind = numpy.nan(np, 1)
         missind = not all(numpy.isnan(xp), 2)
-        xcs[missind, :], ind[missind], _ = coshifta(xt, xp[missind,:], inter, n, options,
-                                                    fill_with_previous=fill_with_previous, block_size=block_size)
+        xcs[missind, :], ind[missind], _ = coshifta(xt, xp[missind,:], inter, n, fill_with_previous=fill_with_previous,
+                                                    block_size=block_size)
         ints = numpy.array([1, mi, ma]).reshape(1, -1)
 
     else:
@@ -481,7 +480,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
 
             if not numpy.all(numpy.isnan(target)) and numpy.any(missind):
 
-                cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n, options,
+                cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n,
                                                      fill_with_previous=fill_with_previous, block_size=block_size)
                 xcs[missind, allint[i, 1]:allint[i, 2] + 1] = cosh_interval
                 ind[missind, i] = loc_ind.flatten()
@@ -497,21 +496,21 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
                 else:
                     logging.info('Co-shifting again interval no. %d of %d... ' % (i, allint.shape[0]))
 
-                intervalnow = xp[:, allint[i, 1]:allint[i, 2]]
-                target1 = numpy.mean(xcs[:, allint[i, 1]:allint[i, 2]+1], axis=0)
+                intervalnow = xp[:, allint[i, 1]:allint[i, 2] + 1]
+                target1 = numpy.mean(xcs[:, allint[i, 1]:allint[i, 2] + 1], axis=0)
                 min_interv = numpy.min(target1)
                 target = (target1 - min_interv) * average2_multiplier
                 missind = ~numpy.all(numpy.isnan(intervalnow), 1)
 
                 if (not numpy.all(numpy.isnan(target))) and (numpy.sum(missind) != 0):
-                    cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n, options,
+                    cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n,
                                                          fill_with_previous=fill_with_previous, block_size=block_size)
-                    xcs[missind, allint[i, 1]:allint[i, 2]] = cosh_interval
-                    xt[allint[i, 1]:allint[i, 2]] = target
+                    xcs[missind, allint[i, 1]:allint[i, 2] + 1] = cosh_interval
+                    xt[allint[i, 1]:allint[i, 2] + 1] = target
                     ind[missind, i] = loc_ind.T
 
                 else:
-                    xcs[:, allint[i, 1]:allint[i, 2]] = intervalnow
+                    xcs[:, allint[i, 1]:allint[i, 2] + 1] = intervalnow
 
     if frag:
 
@@ -529,8 +528,6 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
                         if flag_nan[i_seg, 1, i_sam]:
                             xn[i_sam, (in_or[i_seg, 1] - loc_ind[i_sam, 0] + 1):in_or[i_seg, 1]+1] = numpy.nan
 
-        if options[0] == 2:
-            xt = xt_bu
 
         xcs = xn
     target = xt
@@ -541,7 +538,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
     return xcs, ints, ind, target
 
 
-def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], fill_with_previous=True, block_size=(2 ** 25)):
+def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), fill_with_previous=True, block_size=(2 ** 25)):
 
     if ref_w == 0 or ref_w.shape[0] == 0:
         ref_w = numpy.array([0])
