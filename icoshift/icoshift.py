@@ -50,7 +50,7 @@ def max_with_indices(d):
 
 
 def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scale=None, coshift_preprocessing=False,
-             fill_with_previous=True, average2_multiplier=3):
+             coshift_preprocessing_max_shift=None, fill_with_previous=True, average2_multiplier=3):
     '''
     interval Correlation Optimized shifting
     [xcs, ints, ind, target] = icoshift(xt, xp, inter[, n[, options[, scale]]])
@@ -154,7 +154,31 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
     # RETURNS [xcs, ints, ind, target]
 
     if scale is None:
-        scale = numpy.array(range(0, xp.shape[1]))  # 1:size(xp, 2)]
+        using_custom_scale = False
+        scale = numpy.array(range(0, xp.shape[1]))
+
+    else:
+        using_custom_scale = True
+
+        dec_scale = numpy.diff(scale)
+        inc_scale = scale[0] - scale[1]
+
+        flag_scale_dir = inc_scale < 0
+        flag_di_scale = numpy.any(abs(dec_scale) > 2 * numpy.min(abs(dec_scale)))
+
+        if len(scale) != max(scale.shape):
+            logging.error('scale must be a vector')
+
+        if max(scale.shape) != xp.shape[1]:
+            logging.error('x and scale are not of compatible length %d vs. %d' %
+                         (max(scale.shape), xp.shape[1]))
+
+        if inc_scale == 0 or not numpy.all(numpy.sign(dec_scale) == - numpy.sign(inc_scale)):
+            logging.error('scale must be strictly monotonic')
+
+
+    if coshift_preprocessing_max_shift is None:
+        coshift_preprocessing_max_shift = n
 
     # ERRORS CHECK
     # Constant
@@ -162,22 +186,6 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
     # blocks of 32MB
     block_size = 2 ** 25
 
-    if len(scale) != max(scale.shape):
-        logging.error('scale must be a vector')
-
-    if max(scale.shape) != xp.shape[1]:
-        logging.error('x and scale are not of compatible length %d vs. %d' %
-                     (max(scale.shape), xp.shape[1]))
-
-    dec_scale = numpy.diff(scale)
-
-    inc_scale = scale[0] - scale[1]
-
-    if inc_scale == 0 or not numpy.all(numpy.sign(dec_scale) == - numpy.sign(inc_scale)):
-        logging.error('scale must be strictly monotonic')
-
-    flag_scale_dir = inc_scale < 0
-    flag_di_scale = numpy.any(abs(dec_scale) > 2 * numpy.min(abs(dec_scale)))
 
     max_flag = False
     avg2_flag = False
@@ -211,27 +219,23 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
     # Set defaults if the settings are not set
     options = [options[oi] if oi < len(options) else d for oi, d in enumerate([1, 1, 0, 0, 0]) ]
 
-    if options[4]:
-        prec = abs(numpy.min(unique(dec_scale)))
+    if using_custom_scale:
+        prec = abs(numpy.min(numpy.unique(dec_scale)))
         if flag_di_scale:
             logging.warn('Scale vector is not continuous, the defined intervals might not reflect actual ranges')
 
     flag_coshift = (not inter == 'whole') and coshift_preprocessing
 
     if flag_coshift:
-        if options[3] == 0:
-            n_co = n
 
-        else:
-            n_co = options[3]
-            if nargin >= 6 and options[4]:
-                n_co = dscal2dpts(n_co, scale, prec)
+        if using_custom_scale:
+            coshift_preprocessing_max_shift = dscal2dpts(coshift_preprocessing_max_shift, scale, prec)
 
         if max_flag:
             xt = nanmean(xp, axis=0)
 
-        xp, nil, wint, _ = icoshift(xt, xp, 'whole', n_co, [0, 1, 0], scale=scale, fill_with_previous=True,
-                                    average2_multiplier=average2_multiplier )
+        xp, nil, wint, _ = icoshift(xt, xp, 'whole', coshift_preprocessing_max_shift, [0, 1, 0], scale=scale,
+                                    fill_with_previous=True, average2_multiplier=average2_multiplier )
 
         if xt_basis == 'average':
             xt = nanmean(xp)
@@ -251,26 +255,26 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
             inter = numpy.array([0, mp - 1]).reshape(1, -1)
             whole = True
 
-        elif not numpy.any(inter == '-'):
-            interv = str2double(inter)
-
-            if nargin < 6 or not options[4]:
-                interv = round_(interv)
-
-            else:
-                interv = dscal2dpts(interv, scale, prec)
-
-            inter = defints(xp, interv, options[0])
-
-        else:
+        elif '-' in inter:
             interv = regexp(inter, '(-{0,1}\\d*\\.{0,1}\\d*)-(-{0,1}\\d*\\.{0,1}\\d*)', 'tokens')
-            interv = sort(scal2pts(str2double(cat(0, interv[:])), scale, prec))
+            interv = sort(scal2pts(float(cat(0, interv[:])), scale, prec))
 
             if interv.size != 2:
                 logging.error('Invalid range for reference signal')
 
             inter = range(interv[0], (interv[1] + 1))
             flag2 = True
+
+        else:
+
+            interv = float(inter)
+
+            if using_custom_scale:
+                interv = dscal2dpts(interv, scale, prec)
+            else:
+                interv = round(interv)
+
+            inter = defints(xp, interv, options[0])
 
     elif isinstance(inter, int):
 
@@ -296,7 +300,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
         flag2 = numpy.array_equal(numpy.fix(inter), inter) and max(inter.shape) > 1 and numpy.array_equal(
             numpy.array([1, numpy.max(inter) - numpy.min(inter) + 1]).reshape(1, -1), inter.shape) and numpy.array_equal(unique(numpy.diff(inter, 1, 2)), 1)
 
-        if not flag2 and options[4]:
+        if not flag2 and using_custom_scale:
             inter = scal2pts(inter, scale, prec)
 
             if numpy.any(inter[0:2:] > inter[1:2:]) and not flag_scale_dir:
@@ -308,7 +312,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
 
 
     nint, mint = inter.shape
-    scfl = numpy.array_equal(numpy.fix(scale), scale) and not options[4]
+    scfl = numpy.array_equal(numpy.fix(scale), scale) and not using_custom_scale
 
     if isinstance(inter, basestring) and n not in ['b', 'f']:
         logging.error('"n" must be a scalar b or f')
@@ -318,10 +322,10 @@ def icoshift(xt,  xp,  inter='whole',  n='f',  options=[1,  1,  0,  0,  0], scal
             logging.error('Shift(s) "n" must be larger than zero')
 
         if scfl and not isinstance(n, int):
-            logging.warn('"n" must be an integer if scale is ignored; first element (i.e. %d) used' % round_(n))
+            logging.warn('"n" must be an integer if scale is ignored; first element (i.e. %d) used' % n)
             n = numpy.round(n)
         else:
-            if options[4]:
+            if using_custom_scale:
                 n = dscal2dpts(n, scale, prec)
 
         if not flag2 and numpy.any(numpy.diff(numpy.reshape(inter, (2, mint // 2)), 1, 0) < n):
@@ -717,8 +721,8 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), options=[], fill_with_pr
 
 def defints(xp, interv, opt):
     np, mp = xp.shape
-    sizechk = mp / interv - round_(mp / interv)
-    plus = (mp / interv - round_(mp / interv)) * interv
+    sizechk = mp / interv - round(mp / interv)
+    plus = (mp / interv - round(mp / interv)) * interv
     logging.warn('The last interval will not fulfill the selected intervals size "inter" = %f' % interv)
 
     if plus >= 0:
