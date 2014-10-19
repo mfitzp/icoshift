@@ -99,21 +99,25 @@ def icoshift(xt,  xp,  inter='whole',  n='f', scale=None, coshift_preprocessing=
                          1 : using previous point (default)
                      (2) turns on Co-shift preprocessing
                          0 : no Co-shift preprocessing (default)
-                         1 : Executes a Co-shift step before carrying out iCOshift
-                     (3) max allowed shift for the Co-shift preprocessing (default = equal to n if not specified)
+                         1 :
+                     (3)
                          it has to be given in scale units if option(5)=1
                      (4) 0 : intervals are given in No. of datapoints  (deafult)
                          1 : intervals are given in ppm --> use scale for inter and n
     scale           : vector of scalars used as axis for plot (optional)
+    coshift_preprocessing (bool) (optional; default=False): Execute a Co-shift step before carrying out iCOshift
+    coshift_preprocessing_max_shift (int) (optional): Max allowed shift for the Co-shift preprocessing
+                                                      (default = equal to n if not specified)
+    fill_with_previous (bool) (optional; default=True): Fill using previous point (default); set to False to np.nan
+    average2_multiplier (int) (optional; default=3): Multiplier used for the average2 algorithm
 
-    average2_multiplier: int (optional)
-                    If 'average2' is used as the target, this determines the multiplier used
     OUTPUT
     xcs  (np * mt): shift corrected vector or matrix
     ints (ni * 4) : defined intervals (Int. No.,  starting point,  ending point,  size)
     ind  (np * ni): matrix of indexes reporting how many points each spectrum
                     has been shifted for each interval (+ left,  - right)
     target (1 x mp): actual target used for the final alignment
+
     Authors:
     Francesco Savorani - Department of Food Science
                          Quality & Technology - Spectroscopy and Chemometrics group
@@ -125,12 +129,13 @@ def icoshift(xt,  xp,  inter='whole',  n='f', scale=None, coshift_preprocessing=
                          Faculty of Life Sciences
                          University of Copenhagen - Denmark
     email: giorgio.tomasi@ec.europa.eu - www.igm.life.ku.dk
-    Python conversion by:
+
+    Python implementation by:
     Martin Fitzpatrick -  Rheumatology Research Group
                           Centre for Translational Inflammation Research
                           School of Immunity and Infection
                           University of Birmingham - United Kingdom
-
+    email: martin.fitzpatrick@gmail.com
 
     170508 (FrSa) first working code
     211008 (FrSa) improvements and bugs correction
