@@ -1,6 +1,7 @@
 from __future__ import division, print_function
 import numpy
 from scipy.stats import nanmean, nanmedian
+from copy import copy
 import sys
 import logging
 
@@ -152,6 +153,10 @@ def icoshift(xt,  xp,  inter='whole',  n='f', scale=None, coshift_preprocessing=
     '''
 
     # RETURNS [xcs, ints, ind, target]
+
+    # Take a copy of the xp vector since we mangle it somewhat
+    xp = copy(xp)
+
 
     if scale is None:
         using_custom_scale = False
@@ -638,11 +643,12 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), fill_with_previous=True,
             ind = nans(np, 1)
             r = False
 
+
             for i_block in range(0, n_blocks):
                 block_indices = range(
                     ind_blocks[i_block], ind_blocks[i_block + 1])
 
-                _, ind[block_indices], ri = cc_fft_shift(xt[0, [ref_w]], xp[block_indices, :][:, ref_w],
+                _, ind[block_indices], ri = cc_fft_shift(xt[0, ref_w].reshape(1,-1), xp[block_indices, :][:, ref_w],
                                                          numpy.array([-n, n, 2, 1, filling]) )
 
                 if not r:
@@ -777,10 +783,10 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
 
     np, mp = x_fft.shape
     nt = t.shape[0]
-
-    flag_miss = numpy.any(numpy.isnan(x_fft[:])) or numpy.any(numpy.isnan(t[:]))
+    flag_miss = numpy.any(numpy.isnan(x_fft)) or numpy.any(numpy.isnan(t))
 
     if flag_miss:
+
         if len(x.shape) > 2:
             raise(Exception, 'Multidimensional handling of missing not implemented, yet')
         miss_off = nans(1, mp)
@@ -788,9 +794,9 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
         for i_signal in range(0, mp):
 
             limits = remove_nan(
-                numpy.array([0, np - 1]).reshape(1, -1), x_fft[:, i_signal].T, numpy.all)
+                numpy.array([0, np - 1]).reshape(1, -1), x_fft[:, i_signal].reshape(1, -1), numpy.all)
 
-            if not numpy.array_equal(limits.shape, numpy.array([1, 2]).reshape(1, -1)):
+            if limits.shape != (2, 1):
                 raise(Exception, 'Missing values can be handled only if leading or trailing')
 
             if numpy.any(cat(1, limits[0], mp - limits[1]) > numpy.max(abs(options[0:2]))):
@@ -798,7 +804,7 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
 
             miss_off[i_signal] = limits[0]
 
-            if miss_off[i_signal] > 1:
+            if numpy.any(miss_off[i_signal-1] > 1):
                 x_fft[0:limits[1] - limits[0] + 1,
                       i_signal] = x_fft[limits[0]:limits[1], i_signal]
 
@@ -1039,7 +1045,7 @@ def normalise(x, flag=False):
         flag = numpy.any(~p_att[:])
 
     else:
-        p_att = not numpy.isnan(x)
+        p_att = ~numpy.isnan(x)
 
     m, n = x.shape
     xn = nans(m, n)
