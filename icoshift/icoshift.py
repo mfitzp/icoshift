@@ -29,7 +29,7 @@ def sortrows(a, i):
     return b
 
 
-def nan(r, c):
+def nans(r, c):
     a = numpy.empty((r, c))
     a[:] = numpy.nan
     return a
@@ -405,7 +405,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f', scale=None, coshift_preprocessing=
             amax, bmax = max_with_indices( numpy.sum(xp) )
             xt[mi:ma] = xp[bmax, mi:ma]
 
-        ind = numpy.nan(np, 1)
+        ind = nans(np, 1)
         missind = not all(numpy.isnan(xp), 2)
         xcs[missind, :], ind[missind], _ = coshifta(xt, xp[missind,:], inter, n, fill_with_previous=fill_with_previous,
                                                     block_size=block_size)
@@ -510,7 +510,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f', scale=None, coshift_preprocessing=
 
     if frag:
 
-        xn = numpy.nan(np, mp)
+        xn = nans(np, mp)
         for i_sam in range(0, np):
             for i_seg in range(0, in_or.shape[0]):
                 xn[i_sam, in_or[i_seg, 0]:in_or[i_seg, 1]
@@ -546,7 +546,7 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), fill_with_previous=True,
         rw = 1
 
     if fill_with_previous:
-        filling = - numpy.inf
+        filling = -numpy.inf
 
     else:
         filling = numpy.nan
@@ -609,7 +609,7 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), fill_with_previous=True,
     if nt != 1:
         raise(Exception, 'ERROR: Target "xt" must be a single row spectrum/chromatogram')
 
-    xw = nan(np, mp)
+    xw = nans(np, mp)
     ind = numpy.zeros((1, np))
 
     n_blocks = int(numpy.ceil(sys.getsizeof(xp) / block_size))
@@ -629,13 +629,13 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), fill_with_previous=True,
 
             elif numpy.isnan(filling):
                 # FIXME
-                xtemp = numpy.array(
-                    [nan(np, n), xp, nan(np, n)]).reshape(1, -1)
+                xtemp = cat(1,
+                    nans(np, n), xp, nans(np, n))
 
             if rw == 1:
                 ref_w = range(0, mp)
 
-            ind = nan(np, 1)
+            ind = nans(np, 1)
             r = False
 
             for i_block in range(0, n_blocks):
@@ -682,12 +682,12 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), fill_with_previous=True,
                                 ]).reshape(1, -1)
 
         elif numpy.isnan(filling):
-            xtemp = numpy.array([nan(np, n), xp, nan(np, n)]).reshape(1, -1)
+            xtemp = numpy.array([nans(np, n), xp, nans(np, n)]).reshape(1, -1)
 
         if rw == 1:
             ref_w = range(0, mp)
 
-        ind = nan(np, 1)
+        ind = nans(np, 1)
         r = numpy.array([])
 
         for i_block in range(n_blocks):
@@ -783,7 +783,7 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
     if flag_miss:
         if len(x.shape) > 2:
             raise(Exception, 'Multidimensional handling of missing not implemented, yet')
-        miss_off = nan(1, mp)
+        miss_off = nans(1, mp)
 
         for i_signal in range(0, mp):
 
@@ -869,7 +869,7 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
     if flag_miss:
         shift = shift + miss_off
 
-    x_warp = nan(*[dim_x[0]] + list(dim_t[1:]))
+    x_warp = nans(*[dim_x[0]] + list(dim_t[1:]))
     ind = numpy.tile(numpy.nan, (len(x.shape), 18))
     indw = ind
 
@@ -949,7 +949,7 @@ def remove_nan(b, signal, select=numpy.any, flags=False):
     2.00.00 23 Mar 09 -> Added output for adjacent nan's in signals
     2.01.00 23 Mar 09 -> Added select input parameter
     '''
-    c = nan(b.shape[0], b.shape[1] if len(b.shape) > 1 else 1)
+    c = nans(b.shape[0], b.shape[1] if len(b.shape) > 1 else 1)
     b = b.reshape(1, -1)
     count = 0
     signal = numpy.isnan(signal)
@@ -1042,7 +1042,7 @@ def normalise(x, flag=False):
         p_att = not numpy.isnan(x)
 
     m, n = x.shape
-    xn = nan(m, n)
+    xn = nans(m, n)
     if flag:
         for i_n in range(0, n):
             n = numpy.linalg.norm(x[p_att[:, i_n], i_n])
@@ -1118,7 +1118,7 @@ def extract_segments(x, segments):
     if flag_ab:
         raise(Exception, 'segments must be at least two points long')
 
-    xseg = nan(n, q)
+    xseg = nans(n, q)
     origin = 0
     segnew = []
 
