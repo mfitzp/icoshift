@@ -296,16 +296,24 @@ def icoshift(xt,  xp,  inter='whole',  n='f', scale=None, coshift_preprocessing=
         # e.g. 5 intervals on 32768 to match MATLAB algorithm should be
         #0, 6554, 6554, 13108, 13108, 19662, 19662, 26215, 26215, 32767
 
-        step = int(round(float(mp) / inter))
-        segments = []
+        # Distributes vars_left_over in the first "vars_left_over" intervals
+        # startint     = [(1:(N+1):(remain - 1)*(N+1)+1)'; ((remain - 1) * (N + 1) + 1 + 1 + N:N:mP)'];
 
-        for o in range(0, mp, step):
+        remain = mp % inter
+        step = int( float(mp) / inter )
+        segments = []
+        o = 0
+
+        while o < mp:
             segments.extend([o, o])
+            if remain > 0:
+                o += 1
+                remain -=1
+            o += step
 
         # Chop of duplicate zero
         segments = segments[1:]
-        segments.append(mp)  # Add on final step
-
+        segments.append(mp-1)  # Add on final step
         inter = numpy.array(segments, dtype=int).reshape(1, -1)
 
     elif isinstance(inter, list):  # if is a list of tuples ; add else
@@ -721,7 +729,7 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), fill_with_previous=True,
     return xw, ind, r
 
 
-def defints(xp, interv, opt):
+def defints(xp, interv):
     np, mp = xp.shape
     sizechk = mp / interv - round(mp / interv)
     plus = (mp / interv - round(mp / interv)) * interv
@@ -732,7 +740,7 @@ def defints(xp, interv, opt):
     else:
         logging.warn('Size of the last interval = %d' % (interv + plus))
 
-    if opt[0] != 0 and (sizechk != 0):
+    if sizechk != 0:
         logging.info('The last interval will not fulfill the selected intervals size "inter"=%f.' % interv)
         logging.info('Size of the last interval = %f ' % plus)
 
@@ -772,6 +780,11 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
     x_fft = numpy.transpose(x, ord_)  # permute
     x_fft = numpy.reshape(x_fft, (dim_x[time_dim], numpy.prod(dim_x[ord_[1:]])))
 
+    # FIXME? Sparse/dense switchg
+    # This may be outputting the wrong result; in the MATLAB implementation the b is a samples vs samples matrix, here
+    # it ends up as 3 x samples (on test dataset). The original MATLAB code is rather difficult to understand...
+    # X_fft      = full(X_fft / sparse(1:prod(dimX(ord(2:end))),1:prod(dimX(ord(2:end))),sqrt(SumwNaN(X_fft.^2))));
+
     b = numpy.array(
         [
             range(1, (numpy.prod(dim_x[ord_[1:]]) + 1)),
@@ -779,7 +792,6 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
             numpy.sqrt(numpy.nansum(x_fft ** 2, axis=0))
         ]).T
 
-    # FIXME? Sparse/dense switchg
     x_fft = x_fft / b[:, -1]
 
     t = numpy.transpose(t, ord_)
