@@ -1,5 +1,6 @@
 from __future__ import division, print_function
 import numpy
+import scipy as sp
 from scipy.stats import nanmean, nanmedian
 from copy import copy
 import sys
@@ -781,18 +782,10 @@ def cc_fft_shift(t, x=False, options=numpy.array([])):
     x_fft = numpy.reshape(x_fft, (dim_x[time_dim], numpy.prod(dim_x[ord_[1:]])))
 
     # FIXME? Sparse/dense switchg
-    # This may be outputting the wrong result; in the MATLAB implementation the b is a samples vs samples matrix, here
-    # it ends up as 3 x samples (on test dataset). The original MATLAB code is rather difficult to understand...
-    # X_fft      = full(X_fft / sparse(1:prod(dimX(ord(2:end))),1:prod(dimX(ord(2:end))),sqrt(SumwNaN(X_fft.^2))));
-
-    b = numpy.array(
-        [
-            range(1, (numpy.prod(dim_x[ord_[1:]]) + 1)),
-            range(1, (numpy.prod(dim_x[ord_[1:]]) + 1)),
-            numpy.sqrt(numpy.nansum(x_fft ** 2, axis=0))
-        ]).T
-
-    x_fft = x_fft / b[:, -1]
+    p = numpy.arange(0, numpy.prod(dim_x[ ord_[1:] ] ) )
+    s = numpy.max(p) + 1
+    b = sp.sparse.dia_matrix( (1.0/numpy.sqrt(numpy.nansum(x_fft ** 2, axis=0)), [0]), shape=(s,s) ).todense()
+    x_fft = numpy.dot(x_fft, b)
 
     t = numpy.transpose(t, ord_)
     t = numpy.reshape(t, (dim_t[time_dim], numpy.prod(dim_t[ord_[1:]])))
