@@ -314,7 +314,7 @@ def icoshift(xt,  xp,  inter='whole',  n='f', scale=None, coshift_preprocessing=
 
         # Chop of duplicate zero
         segments = segments[1:]
-        segments.append(mp-1)  # Add on final step
+        segments.append(mp)  # Add on final step
         inter = numpy.array(segments, dtype=int).reshape(1, -1)
 
         logging.info("Calculated intervals: %s" % inter)
@@ -484,14 +484,14 @@ def icoshift(xt,  xp,  inter='whole',  n='f', scale=None, coshift_preprocessing=
                 logging.info('Co-shifting interval no. %s of %s...' % (i, allint.shape[0]) )
 
             # FIXME? 0:2, or 1:2?
-            intervalnow = xp[:, allint[i, 1]:allint[i, 2] + 1]
+            intervalnow = xp[:, allint[i, 1]:allint[i, 2]]
 
             if max_flag:
-                amax, bmax = max_with_indices( numpy.sum(intervalnow, axis=1) )
+                amax, bmax = max_with_indices(numpy.sum(intervalnow, axis=1))
                 target = intervalnow[bmax, :]
-                xt[0, allint[i, 1]:allint[i, 2] + 1] = target
+                xt[0, allint[i, 1]:allint[i, 2]] = target
             else:
-                target = xt[:, allint[i, 1]:allint[i, 2] + 1]
+                target = xt[:, allint[i, 1]:allint[i, 2]]
 
             missind = ~numpy.all(numpy.isnan(intervalnow), axis=1)
 
@@ -499,11 +499,11 @@ def icoshift(xt,  xp,  inter='whole',  n='f', scale=None, coshift_preprocessing=
 
                 cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n,
                                                      fill_with_previous=fill_with_previous, block_size=block_size)
-                xcs[missind, allint[i, 1]:allint[i, 2] + 1] = cosh_interval
+                xcs[missind, allint[i, 1]:allint[i, 2]] = cosh_interval
                 ind[missind, i] = loc_ind.flatten()
 
             else:
-                xcs[:, allint[i, 1]:allint[i, 1] + 1] = intervalnow
+                xcs[:, allint[i, 1]:allint[i, 1]] = intervalnow
 
         if avg2_flag:
 
@@ -513,8 +513,8 @@ def icoshift(xt,  xp,  inter='whole',  n='f', scale=None, coshift_preprocessing=
                 else:
                     logging.info('Co-shifting again interval no. %d of %d... ' % (i, allint.shape[0]))
 
-                intervalnow = xp[:, allint[i, 1]:allint[i, 2] + 1]
-                target1 = numpy.mean(xcs[:, allint[i, 1]:allint[i, 2] + 1], axis=0)
+                intervalnow = xp[:, allint[i, 1]:allint[i, 2]]
+                target1 = numpy.mean(xcs[:, allint[i, 1]:allint[i, 2]], axis=0)
                 min_interv = numpy.min(target1)
                 target = (target1 - min_interv) * average2_multiplier
                 missind = ~numpy.all(numpy.isnan(intervalnow), 1)
@@ -522,12 +522,13 @@ def icoshift(xt,  xp,  inter='whole',  n='f', scale=None, coshift_preprocessing=
                 if (not numpy.all(numpy.isnan(target))) and (numpy.sum(missind) != 0):
                     cosh_interval, loc_ind, _ = coshifta(target, intervalnow[missind, :], 0, n,
                                                          fill_with_previous=fill_with_previous, block_size=block_size)
-                    xcs[missind, allint[i, 1]:allint[i, 2] + 1] = cosh_interval
-                    xt[allint[i, 1]:allint[i, 2] + 1] = target
+                    xcs[missind, allint[i, 1]:allint[i, 2]] = cosh_interval
+
+                    xt[0, allint[i, 1]:allint[i, 2]] = target
                     ind[missind, i] = loc_ind.T
 
                 else:
-                    xcs[:, allint[i, 1]:allint[i, 2] + 1] = intervalnow
+                    xcs[:, allint[i, 1]:allint[i, 2]] = intervalnow
 
     if frag:
 
@@ -981,22 +982,22 @@ def remove_nan(b, signal, select=numpy.any, flags=False):
             a = numpy.flatnonzero(p < 0) + 1
             b = numpy.flatnonzero(p > 0)
 
-            if not in_[0]:
+            if numpy.any(~in_[0]):
                 a = cat(1, numpy.array([0]), a)
 
             else:
                 b = b[1:]
 
-            if not in_[-1]:
+            if numpy.any(~in_[-1]):
                 b = cat(1, b, numpy.array([max(ind.shape) - 1]))
 
             a = numpy.unique(a)
             b = numpy.unique(b)
 
-            d = ind[cat(0, a[:].reshape(1, -1), b[:].reshape(1, -1))]
+            d = ind[cat(0, a, b)]
 
             c.resize(d.shape)
-            c[count:count + max(a.shape), :] = d
+            c[count:count + max(a.shape) + 1] = d
 
             count = count + max(a.shape)
 
