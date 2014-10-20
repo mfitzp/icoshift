@@ -711,7 +711,6 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), fill_with_previous=True,
         r = numpy.array([])
         for i_block in range(n_blocks):
 
-            print(';;;', filling)
             block_indices = range(ind_blocks[i_block], ind_blocks[i_block + 1])
             dummy, ind[block_indices], ri = cc_fft_shift(xt[0, ref_w].reshape(1,-1), xp[block_indices, :][:, ref_w],
                                                          numpy.array([-n, n, 2, 1, filling]))
