@@ -317,6 +317,8 @@ def icoshift(xt,  xp,  inter='whole',  n='f', scale=None, coshift_preprocessing=
         segments.append(mp-1)  # Add on final step
         inter = numpy.array(segments, dtype=int).reshape(1, -1)
 
+        logging.info("Calculated intervals: %s" % inter)
+
     elif isinstance(inter, list):  # if is a list of tuples ; add else
         inter = np.array(inter)
 
@@ -669,11 +671,10 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), fill_with_previous=True,
                     r = numpy.empty((0, ri.shape[1]))
                 r = cat(0, r, ri).T
 
-            temp_index = range(-n, n)
+            temp_index = range(-n, n+1)
 
             for i_sam in range(0, np):
                 index = numpy.flatnonzero(temp_index == ind[i_sam])
-
                 xw[i_sam, :] = xtemp[i_sam, index:index + mp]
 
             if (numpy.max(abs(ind)) == n) and try_last != 1:
