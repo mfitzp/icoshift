@@ -655,7 +655,7 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), fill_with_previous=True,
                     nans(np, n), xp, nans(np, n))
 
             if rw == 1:
-                ref_w = range(0, mp)
+                ref_w = numpy.arange(0, mp) #.reshape(1,-1)
 
             ind = nans(np, 1)
             r = False
@@ -679,7 +679,7 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), fill_with_previous=True,
                 xw[i_sam, :] = xtemp[i_sam, index:index + mp]
 
             if (numpy.max(abs(ind)) == n) and try_last != 1:
-                if n + src_step >= ref_w.shape[1]:
+                if n + src_step >= ref_w.shape[0]:
                     try_last = 1
                     continue
                 n += src_step
@@ -696,27 +696,24 @@ def coshifta(xt, xp, ref_w=0, n=numpy.array([1, 2, 3]), fill_with_previous=True,
 
     else:
         if filling == -numpy.inf:
-
-            xtemp = numpy.array([
-                                numpy.repeat(xp[:, 0], n),
-                                xp,
-                                numpy.repeat(xp[:, mp-1], n),
-                                ]).reshape(1, -1)
+            xtemp = cat(1, numpy.tile(xp[:, :1], (1., n)),
+                        xp, numpy.tile(xp[:, -1:, ], (1., n)))
 
         elif numpy.isnan(filling):
-            xtemp = numpy.array([nans(np, n), xp, nans(np, n)]).reshape(1, -1)
+            xtemp = cat(1,
+                nans(np, n), xp, nans(np, n))
+
 
         if rw == 1:
-            ref_w = range(0, mp)
+            ref_w = numpy.arange(0, mp) #.reshape(1,-1)
 
         ind = nans(np, 1)
         r = numpy.array([])
-
         for i_block in range(n_blocks):
 
-
+            print(';;;', filling)
             block_indices = range(ind_blocks[i_block], ind_blocks[i_block + 1])
-            dummy, ind[block_indices], ri = cc_fft_shift(xt[0, [ref_w]], xp[block_indices, :][:, ref_w],
+            dummy, ind[block_indices], ri = cc_fft_shift(xt[0, ref_w].reshape(1,-1), xp[block_indices, :][:, ref_w],
                                                          numpy.array([-n, n, 2, 1, filling]))
             r = cat(0, r, ri)
 
@@ -1153,9 +1150,13 @@ def extract_segments(x, segments):
     return xseg, segnew
 
 
+def find_nearest(array, value):
+    idx = (numpy.abs(array-value)).argmin()
+    return array[idx], idx
+
 def scal2pts(ppmi,  ppm=[],  prec=None):
     """
-    Transforms scalars in data points
+    Transforms scalars into data points
 
     pts = scal2pts(values, scal)
 
@@ -1182,70 +1183,31 @@ def scal2pts(ppmi,  ppm=[],  prec=None):
     1.00.00 12 Feb 09 -> First working version
     1.01.00 11 Mar 09 -> Added input parameter check
     """
+    rev = ppm[0] > ppm[1]
+
     if prec is None:
         prec = min(abs(unique(numpy.diff(ppm))))
 
-    dimppmi = ppmi.shape
-    ppmi = ppmi[:]
-    ppm = ppm[:]
-    rev = ppm[0] > ppm[1]
+    pts = []
+    for i in ppmi:
+        nearest_v, idx = find_nearest(ppm, i)
+        if abs(nearest_v-i) > prec:
+            pts.append(numpy.nan)
+        else:
+            pts.append( idx )
 
-    if rev:
-        ppm = ppm[-1:0:1]
-
-    ubound = (ppmi - ppm[-1]) < prec & (ppmi - ppm[-2]) > 0
-    lbound = (ppm[0] - ppmi) < prec & (ppm[0] - ppmi) > 0
-    ppmi[(ubound - 1)] = ppm[-1]
-    ppmi[(lbound - 1)] = ppm[0]
-
-    if nargin < 2:
-        raise(Exception, 'Not enough input arguments')
-
-    if max(ppmi.shape) > max(ppm.shape):
-        logging.warn('scal2pts ppm vector is shorter than the values')
-
-    xxi, k = sort(ppmi[:])
-    nil, j = sort(numpy.array([ppm[:], xxi[:]]).reshape(1, -1))
-    r[j] = range(1, (max(j.shape) + 1))
-    r = r[(max(ppm.shape) + 1):] - range(1, max(ppmi.shape) + 1)
-    r[k] = r
-    r[ppmi == ppm[-1]] = max(ppm.shape)
-    ind = numpy.flatnonzero((r > 0) & (r <= max(ppm.shape)))
-    ind = ind[:]
-    pts = Inf(ppmi.shape)
-    pts[ind] = r[ind]
-
-    ptsp1 = numpy.min(max(ppm.shape), abs(pts + 1))
-    ptsm1 = numpy.max(1, abs(pts - 1))
-    ind = numpy.flatnonzero(isfinite(pts))
-
-    dp0 = abs(ppm[pts[ind]] - ppmi[ind])
-    dpp1 = abs(ppm[ptsp1[ind]] - ppmi[ind])
-    dpm1 = abs(ppm[ptsm1[ind]] - ppmi[ind])
-
-    pts[ind[dpp1 < dp0]] += 1
-    pts[ind[dpm1 < dp0]] += 1
-
-    if 0 in pts.shape:
-        pts = numpy.array([])
-    pts[~numpy.isfinite(pts)] = nan
-
-    if rev:
-        pts = max(ppm.shape) - pts + 1
-    if not numpy.array_equal(pts.shape, ppmi):
-        pts = numpy.reshape(pts, dimppmi)
-
-    return pts
+    return numpy.array(pts)
 
 
-def dscal2dpts(d, ppm, **args):
+
+def dscal2dpts(d, ppm, prec=None):
     """
     Translates an interval width from scal to the best approximation in sampling points.
 
     i = dppm2dpts(delta, scal, prec)
 
     INPUT
-    delta: interval widths in scale units
+    delta: interval width in scale units
     scal : scale
     prec : precision on the scal axes
 
@@ -1262,19 +1224,18 @@ def dscal2dpts(d, ppm, **args):
 
     Last modified: 28th October,  2013
     """
-    if 0 in d.shape:
-        i = numpy.array([])
-        return i
+    if d == 0:
+        return 0
 
     if d <= 0:
         raise(Exception, 'delta must be positive')
 
-    if ppm[0] < ppm[1]:
-        i = scal2pts(ppm[0] + d, ppm, varargin[:]) - 1
+    if ppm[0] < ppm[1]: # Scale in order
+        i = scal2pts(numpy.array([ppm[0] + d]), ppm, prec) -1
 
     else:
-        i = max(ppm.shape) - scal2pts(ppm[-2] + d, ppm, args[:]) + 1
+        i = max(ppm.shape) - scal2pts(numpy.array([ppm[-1] + d]), ppm, prec) +1
 
-    return i
+    return i[0]
 
 
